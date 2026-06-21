@@ -1,0 +1,36 @@
+# ==============================================================================
+# SÉCURITÉ : ne jamais versionner les secrets ni les données générées
+# ==============================================================================
+
+# Clés de compte de service Google Cloud / tout fichier de credentials JSON
+*.json
+
+# Variables d'environnement locales
+.env
+.env.*
+!.env.example
+
+# Rapports générés
+*.csv
+
+# ==============================================================================
+# Python
+# ==============================================================================
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Environnements virtuels
+.venv/
+venv/
+env/
+
+# Outils
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
