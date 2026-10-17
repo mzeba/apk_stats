@@ -9,7 +9,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 
 from apk_stats.exceptions import ConfigError
-from apk_stats.models import CountryInstall, MonthlyResult, Period
+from apk_stats.models import CountryInstall, StatsResult
 
 
 class Aggregator:
@@ -32,9 +32,9 @@ class Aggregator:
     def aggregate(
         self,
         package: str,
-        period: Period,
+        bucket: str,
         records: Iterable[CountryInstall],
-    ) -> MonthlyResult:
+    ) -> StatsResult:
         """Calcule le total par pays ciblé et le total monde pour un package/période."""
         by_country: dict[str, int] = {code: 0 for code in self._target_countries}
         world = 0
@@ -43,9 +43,9 @@ class Aggregator:
             code = record.country_code.strip().upper()
             if code in by_country:
                 by_country[code] += record.installs
-        return MonthlyResult(
+        return StatsResult(
             package=package,
-            period=period,
+            bucket=bucket,
             by_country=by_country,
             world=world,
         )

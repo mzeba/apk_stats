@@ -10,6 +10,7 @@ from __future__ import annotations
 import csv
 import logging
 from dataclasses import dataclass
+from datetime import date
 
 from apk_stats.exceptions import ParsingError
 from apk_stats.models import CountryInstall
@@ -24,7 +25,12 @@ _INSTALL_HINTS = (
     "installs",
 )
 
+# En-tête de la colonne de date, identique en anglais et en français. Comparé
+# à l'identique : « update » contient « date » et ne doit pas être confondu.
+_DATE_HEADER = "date"
+
 # Index de repli si l'en-tête n'est pas reconnu (format historique Play Console).
+_DEFAULT_DATE_IDX = 0
 _DEFAULT_COUNTRY_IDX = 2
 _DEFAULT_INSTALLS_IDX = 3
 
@@ -33,6 +39,7 @@ _DEFAULT_INSTALLS_IDX = 3
 class ColumnLayout:
     """Position des colonnes utiles dans le rapport."""
 
+    date_idx: int
     country_idx: int
     installs_idx: int
 
@@ -75,9 +82,15 @@ class ReportParser:
     @staticmethod
     def _detect_columns(header_row: list[str]) -> ColumnLayout:
         header = [col.lower() for col in header_row]
+        date_idx = next(
+            (idx for idx, col in enumerate(header) if col.strip() == _DATE_HEADER),
+            _DEFAULT_DATE_IDX,
+        )
         country_idx = _find_column(header, _COUNTRY_HINTS, _DEFAULT_COUNTRY_IDX)
         installs_idx = _find_column(header, _INSTALL_HINTS, _DEFAULT_INSTALLS_IDX)
-        return ColumnLayout(country_idx=country_idx, installs_idx=installs_idx)
+        return ColumnLayout(
+            date_idx=date_idx, country_idx=country_idx, installs_idx=installs_idx
+        )
 
     @staticmethod
     def _parse_row(row: list[str], layout: ColumnLayout) -> CountryInstall | None:
@@ -88,7 +101,16 @@ class ReportParser:
             installs = int(row[layout.installs_idx])
         except ValueError:
             installs = 0
-        return CountryInstall(country_code=country_code, installs=installs)
+        day = _parse_day(row[layout.date_idx]) if layout.date_idx < len(row) else None
+        return CountryInstall(country_code=country_code, installs=installs, day=day)
+
+
+def _parse_day(value: str) -> date | None:
+    """Date ISO `AAAA-MM-DD` de la ligne, ou ``None`` si absente ou illisible."""
+    try:
+        return date.fromisoformat(value.strip())
+    except ValueError:
+        return None
 
 
 def _find_column(header: list[str], hints: tuple[str, ...], default: int) -> int:

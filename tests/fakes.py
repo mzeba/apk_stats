@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from apk_stats.models import MonthlyResult, Period
+from apk_stats.models import Period, StatsResult
 from apk_stats.sources.base import StatsSource
 from apk_stats.writers.base import ReportWriter
 
@@ -36,7 +36,7 @@ class InMemoryWriter(ReportWriter):
     """Capture les résultats au lieu de les persister."""
 
     def __init__(self) -> None:
-        self.results: list[MonthlyResult] = []
+        self.results: list[StatsResult] = []
 
-    def write(self, results: Sequence[MonthlyResult]) -> None:
+    def write(self, results: Sequence[StatsResult]) -> None:
         self.results = list(results)

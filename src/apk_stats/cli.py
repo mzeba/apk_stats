@@ -45,8 +45,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--countries",
         help="Codes pays ISO (deux lettres) séparés par des virgules, ex. 'BF,CI'.",
     )
-    parser.add_argument("--start", help="Période de début (AAAA-MM).")
-    parser.add_argument("--end", help="Période de fin (AAAA-MM).")
+    parser.add_argument(
+        "--start", help="Date de début (AAAA, AAAA-MM ou AAAA-MM-DD, incluse)."
+    )
+    parser.add_argument(
+        "--end", help="Date de fin (AAAA, AAAA-MM ou AAAA-MM-DD, incluse)."
+    )
+    parser.add_argument(
+        "--frequency",
+        help="Granularité des résultats : yearly, monthly (défaut) ou daily.",
+    )
     parser.add_argument("--output", help="Chemin du fichier CSV de sortie.")
     parser.add_argument(
         "-v",
@@ -66,6 +74,7 @@ def _build_config(args: argparse.Namespace) -> AppConfig:
         start=args.start,
         end=args.end,
         output_path=args.output,
+        frequency=args.frequency,
     )
 
 
@@ -76,7 +85,7 @@ def _build_pipeline(config: AppConfig) -> StatsPipeline:
 
     client = storage.Client.from_service_account_json(config.credentials_path)
     source = GcsStatsSource(client, config.bucket_name)
-    writer = CsvReportWriter(config.output_path)
+    writer = CsvReportWriter(config.output_path, config.frequency)
     aggregator = Aggregator(config.countries)
     return StatsPipeline(source, writer, aggregator)
 
@@ -95,7 +104,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         config = _build_config(args)
         pipeline = _build_pipeline(config)
-        results = pipeline.run(config.packages, config.periods)
+        results = pipeline.run(config.packages, config.date_range, config.frequency)
     except EdmStatsError as exc:
         logger.error("%s", exc)
         return 1

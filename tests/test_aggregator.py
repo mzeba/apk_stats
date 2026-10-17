@@ -6,9 +6,9 @@ import pytest
 
 from apk_stats.aggregator import Aggregator
 from apk_stats.exceptions import ConfigError
-from apk_stats.models import CountryInstall, Period
+from apk_stats.models import CountryInstall
 
-PERIOD = Period.parse("2026-01")
+PERIOD = "2026-01"
 
 
 def _records(*pairs: tuple[str, int]) -> list[CountryInstall]:

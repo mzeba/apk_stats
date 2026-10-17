@@ -11,7 +11,7 @@ Pipeline ETL en couches, chaque responsabilité isolée dans son module :
 ```
 src/apk_stats/
 ├── config.py        # Chargement & validation de la configuration (env)
-├── models.py        # Objets-valeur immutables : Period, CountryInstall, MonthlyResult
+├── models.py        # Objets-valeur immutables : Period, DateRange, Frequency, CountryInstall, StatsResult
 ├── exceptions.py    # Hiérarchie d'exceptions métier
 ├── parsing.py       # Décodage UTF-16 + détection de colonnes (FR/EN)
 ├── aggregator.py    # Logique métier : totaux par pays ciblé + total monde
@@ -56,7 +56,8 @@ pointer un autre fichier avec `--env-file`.
 | `EDM_BUCKET_NAME` | Bucket Play Console (`pubsite_prod_...`) |
 | `EDM_PACKAGES` | Packages séparés par des virgules (ex. `com.incubuo.mbem`) |
 | `EDM_COUNTRIES` | Codes pays ISO 3166-1 alpha-2 séparés par des virgules (ex. `BF,CI,ML`) |
-| `EDM_START_PERIOD` / `EDM_END_PERIOD` | Bornes de période `AAAA-MM` |
+| `EDM_START_PERIOD` / `EDM_END_PERIOD` | Bornes incluses : `AAAA`, `AAAA-MM` ou `AAAA-MM-DD` |
+| `EDM_FREQUENCY` | Granularité : `yearly`, `monthly` (défaut) ou `daily` |
 | `EDM_OUTPUT` | Fichier CSV de sortie |
 
 ## Configuration côté Google Play Console
@@ -106,8 +107,20 @@ Le rôle **`objectViewer`** (lecture seule) suffit — n'accordez rien de plus
 
 - **`EDM_PACKAGES`** : l'`applicationId` de chaque app (Play Console → l'app →
   *Tableau de bord* ; ex. `com.incubuo.mbem`). Plusieurs séparés par des virgules.
-- **`EDM_START_PERIOD` / `EDM_END_PERIOD`** : les rapports sont **mensuels** et publiés
-  après la clôture du mois. Un mois en cours n'est donc pas encore disponible.
+- **`EDM_START_PERIOD` / `EDM_END_PERIOD`** : bornes incluses, au format `AAAA`,
+  `AAAA-MM` ou `AAAA-MM-DD` (les formats peuvent être mélangés). Une borne partielle
+  est étendue à l'année ou au mois entier :
+
+  | Valeur | Comme début | Comme fin |
+  |---|---|---|
+  | `2026` | 2026-01-01 | 2026-12-31 |
+  | `2026-02` | 2026-02-01 | 2026-02-28 |
+  | `2026-02-10` | 2026-02-10 | 2026-02-10 |
+
+  Les fichiers Play Console sont **mensuels**, mais ils contiennent une ligne par jour.
+  Quand un mois n'est couvert qu'en partie, seuls les jours de l'intervalle sont comptés.
+  Le fichier d'un mois n'est publié qu'une fois ce mois terminé : le mois en cours n'est
+  donc pas encore disponible.
 
 ### Structure attendue des rapports
 
@@ -127,6 +140,16 @@ Ce sont des CSV **encodés en UTF-16**, dont les en-têtes varient selon la lang
 # Avec la configuration issue de .env (chargé automatiquement)
 apk-stats
 
+# Toute l'année 2025
+apk-stats --start 2025 --end 2025
+
+# Du 10 janvier au 5 février 2026
+apk-stats --start 2026-01-10 --end 2026-02-05
+
+# Totaux par année, ou jour par jour
+apk-stats --start 2024 --end 2025 --frequency yearly
+apk-stats --start 2026-03 --end 2026-03 --frequency daily
+
 # En surchargeant ponctuellement via la CLI
 apk-stats --start 2026-01 --end 2026-05 \
           --packages com.incubuo.mbem,com.incubuo.meg \
@@ -140,8 +163,19 @@ apk-stats --env-file prod.env
 python -m apk_stats --help
 ```
 
-Pour chaque package et chaque mois, le CSV de sortie contient une ligne par pays ciblé
-(code ISO) puis une ligne **« Tous les pays »** (total monde) :
+Pour chaque package et chaque période, le CSV de sortie contient une ligne par pays
+ciblé (code ISO) puis une ligne **« Tous les pays »** (total monde). La période dépend de
+`--frequency` / `EDM_FREQUENCY` :
+
+| Fréquence | Colonne | Exemple de valeur |
+|---|---|---|
+| `yearly` | `Année` | `2026` |
+| `monthly` (défaut) | `Mois` | `2026-01` |
+| `daily` | `Jour` | `2026-01-15` |
+
+Dans tous les cas,
+seuls les jours compris dans l'intervalle sont comptés : une année ou un mois coupé par
+`--start` / `--end` ne compte que la partie demandée. Exemple en fréquence `monthly` :
 
 ```csv
 Application,Mois,Zone Géographique,Nombre de Téléchargements

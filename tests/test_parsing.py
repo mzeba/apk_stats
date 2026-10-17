@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import date
+
 import pytest
 
 from apk_stats.exceptions import ParsingError
@@ -47,3 +49,13 @@ def test_short_rows_are_skipped(parser: ReportParser):
 def test_undecodable_content_raises(parser: ReportParser):
     with pytest.raises(ParsingError):
         parser.parse(b"\xff")
+
+
+def test_row_date_is_parsed(parser: ReportParser):
+    content = utf16_report([EN_HEADER, ["2026-01-15", "com.x", "BF", "2"]])
+    assert parser.parse(content)[0].day == date(2026, 1, 15)
+
+
+def test_unreadable_date_is_none(parser: ReportParser):
+    content = utf16_report([FR_HEADER, ["15/01/2026", "com.x", "BF", "2"]])
+    assert parser.parse(content)[0].day is None

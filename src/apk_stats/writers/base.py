@@ -9,12 +9,12 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
-from apk_stats.models import MonthlyResult
+from apk_stats.models import StatsResult
 
 
 class ReportWriter(ABC):
     """Persiste une liste de résultats agrégés."""
 
     @abstractmethod
-    def write(self, results: Sequence[MonthlyResult]) -> None:
+    def write(self, results: Sequence[StatsResult]) -> None:
         raise NotImplementedError

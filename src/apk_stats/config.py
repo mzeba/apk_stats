@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Mapping
 
 from apk_stats.exceptions import ConfigError
-from apk_stats.models import Period
+from apk_stats.models import DateRange, Frequency, Period
 
 # Un nom de package Android valide : segments alphanumériques séparés par des points.
 # Sert aussi de garde-fou contre l'injection dans les chemins d'objets GCS.
@@ -29,6 +29,7 @@ ENV_COUNTRIES = "EDM_COUNTRIES"
 ENV_START = "EDM_START_PERIOD"
 ENV_END = "EDM_END_PERIOD"
 ENV_OUTPUT = "EDM_OUTPUT"
+ENV_FREQUENCY = "EDM_FREQUENCY"
 
 DEFAULT_OUTPUT = "stats_mensuelles_burkina_vs_monde.csv"
 
@@ -41,14 +42,14 @@ class AppConfig:
     bucket_name: str
     packages: tuple[str, ...]
     countries: tuple[str, ...]
-    start: Period
-    end: Period
+    date_range: DateRange
     output_path: str
+    frequency: Frequency = Frequency.MONTHLY
 
     @property
     def periods(self) -> list[Period]:
-        """Périodes mensuelles couvertes par la configuration."""
-        return Period.range(self.start, self.end)
+        """Périodes mensuelles touchées par l'intervalle configuré."""
+        return self.date_range.periods
 
     @classmethod
     def from_env(
@@ -62,6 +63,7 @@ class AppConfig:
         start: str | None = None,
         end: str | None = None,
         output_path: str | None = None,
+        frequency: str | None = None,
     ) -> "AppConfig":
         """Construit la configuration depuis l'environnement.
 
@@ -78,15 +80,23 @@ class AppConfig:
         resolved_start = start or env.get(ENV_START)
         resolved_end = end or env.get(ENV_END)
         resolved_output = output_path or env.get(ENV_OUTPUT) or DEFAULT_OUTPUT
+        resolved_frequency = frequency or env.get(ENV_FREQUENCY)
 
         return cls(
             credentials_path=_require(resolved_credentials, ENV_CREDENTIALS),
             bucket_name=_validate_bucket(_require(resolved_bucket, ENV_BUCKET)),
             packages=_parse_packages(_require(resolved_packages, ENV_PACKAGES)),
             countries=_parse_countries(_require(resolved_countries, ENV_COUNTRIES)),
-            start=Period.parse(_require(resolved_start, ENV_START)),
-            end=Period.parse(_require(resolved_end, ENV_END)),
+            date_range=DateRange.parse(
+                _require(resolved_start, ENV_START),
+                _require(resolved_end, ENV_END),
+            ),
             output_path=resolved_output,
+            frequency=(
+                Frequency.parse(resolved_frequency)
+                if resolved_frequency
+                else Frequency.MONTHLY
+            ),
         )
 
 
